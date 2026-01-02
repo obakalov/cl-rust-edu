@@ -1,24 +1,23 @@
-fn main() {
-    let matches = clap::Command::new("echor")
-        .version("0.1.0")
-        .author("OBakalov oleksii.bakalov@gmail.com")
-        .about("Rust version of echo")
-        .arg(
-            clap::Arg::new("text")
-                .value_name("TEXT")
-                .help("Text to echo")
-                .required(true)
-                .num_args(1..),
-        )
-        .arg(
-            clap::Arg::new("omit_newline")
-                .short('n')
-                .action(clap::ArgAction::SetTrue)
-                .help("Do not print the trailing newline"),
-        )
-        .get_matches();
-    let text: Vec<String> = matches.get_many("text").unwrap().cloned().collect();
-    let omit_newline: bool = matches.get_flag("omit_newline");
+use clap::Parser;
 
-    print!("{}{}", text.join(" "), if omit_newline { "" } else { "\n" });
+#[derive(Parser, Debug)]
+#[command(
+    author = "OBakalov oleksii.bakalov@gmail.com",
+    version = "0.1.0",
+    about = "Rust version of echo"
+)]
+struct Args {
+    #[arg(value_name = "TEXT", required = true)]
+    text: Vec<String>,
+    #[arg(short = 'n', long = "no-newline")]
+    omit_newline: bool,
+}
+
+fn main() {
+    let args = Args::parse();
+    print!(
+        "{}{}",
+        args.text.join(" "),
+        if args.omit_newline { "" } else { "\n" }
+    )
 }
