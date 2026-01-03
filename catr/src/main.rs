@@ -1,6 +1,6 @@
 use clap::Parser;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Result};
+use std::io::{BufRead, BufReader, Result};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -43,9 +43,14 @@ fn run(_args: Args) -> Result<()> {
     for filename in _args.files {
         match open(&filename) {
             Err(e) => eprintln!("Failed to open {filename}: {e}"),
-            Ok(data) => println!("File {filename} opened successfully"),
+            Ok(data) => run_file(&data)?,
         }
     }
+    Ok(())
+}
+
+fn run_file(_buf: &Box<dyn BufRead>) -> Result<()>  {
+    // buf.lines().for_each(|line| println!("{}", line?));
     Ok(())
 }
 
