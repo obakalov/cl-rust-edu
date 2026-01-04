@@ -2,12 +2,12 @@
 <module type="EMPTY_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/echor/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/echor/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/catr/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/catr/tests" isTestSource="true" />
-      <excludeFolder url="file://$MODULE_DIR$/catr/target" />
-      <excludeFolder url="file://$MODULE_DIR$/echor/target" />
+      <sourceFolder url="file://$MODULE_DIR$/01_echor/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/01_echor/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/02_catr/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/02_catr/tests" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/01_echor/target" />
+      <excludeFolder url="file://$MODULE_DIR$/02_catr/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

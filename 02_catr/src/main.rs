@@ -39,19 +39,41 @@ fn get_args() -> Args {
     args
 }
 
-fn run(_args: Args) -> Result<()> {
-    for filename in _args.files {
+fn run(args: Args) -> Result<()> {
+    let mut line_num = 0;
+    for filename in &args.files {
         match open(&filename) {
             Err(e) => eprintln!("Failed to open {filename}: {e}"),
-            Ok(data) => run_file(&data)?,
+            Ok(mut file) =>
+                line_num = run_file(&args, &mut file, line_num)?,
         }
     }
     Ok(())
 }
 
-fn run_file(_buf: &Box<dyn BufRead>) -> Result<()>  {
-    // buf.lines().for_each(|line| println!("{}", line?));
-    Ok(())
+fn run_file(
+    args: &Args,
+    file: &mut dyn BufRead,
+    line_num: i32,
+) -> Result<i32> {
+    let mut line = String::new();
+    let mut new_line_num = line_num;
+    if line_num > 0 {
+        println!()
+    }
+    loop {
+        let read_bytes = file.read_line(&mut line)?;
+        if read_bytes == 0 {
+            break;
+        }
+        if args.number || (args.number_nonblank_lines && !line.trim().is_empty()) {
+            new_line_num += 1;
+            print!("{new_line_num:>6}\t");
+        }
+        print!("{line}");
+        line.clear()
+    }
+    Ok(new_line_num)
 }
 
 fn open(filename: &str) -> Result<Box<dyn BufRead>> {
