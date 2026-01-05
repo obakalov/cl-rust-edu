@@ -38,7 +38,7 @@ fn main() {
 fn run(args: Args) -> Result<()> {
     let file_count = args.files.len();
 
-    for (idx, filename) in &args.files.iter().enumerate() {
+    for (idx, filename) in args.files.iter().enumerate() {
         if file_count > 1 {
             println!("{}==> {} <==", if idx > 0 { "\n" } else { "" }, filename);
         }
