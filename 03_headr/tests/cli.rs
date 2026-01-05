@@ -4,7 +4,7 @@ use predicates::prelude::*;
 use pretty_assertions::assert_eq;
 use rand::distr::Alphanumeric;
 use rand::Rng;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::prelude::*;
 
 const EMPTY: &str = "./tests/inputs/empty.txt";
@@ -21,14 +21,6 @@ fn random_string() -> String {
         .collect()
 }
 
-fn gen_bad_file() -> String {
-    loop {
-        let filename = random_string();
-        if fs::metadata(&filename).is_err() {
-            return filename;
-        }
-    }
-}
 
 #[test]
 fn dies_bad_bytes() -> Result<()> {
