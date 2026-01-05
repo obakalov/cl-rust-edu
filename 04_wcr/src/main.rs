@@ -10,7 +10,7 @@ struct Args {
     lines: bool,
     #[arg(short = 'w', long = "words", help = "Print the number of words")]
     words: bool,
-    #[arg(short = 'b', long = "bytes", help = "Print the number of bytes")]
+    #[arg(short = 'c', long = "bytes", help = "Print the number of bytes")]
     bytes: bool,
     #[arg(
         short = 'm',
@@ -29,21 +29,48 @@ struct FileInfo {
     num_chars: u64,
 }
 
+impl FileInfo {
+    fn create() -> Self {
+        Self {
+            num_lines: 0,
+            num_words: 0,
+            num_bytes: 0,
+            num_chars: 0,
+        }
+    }
+
+    fn add(&mut self, other: Self) {
+        self.num_lines += other.num_lines;
+        self.num_words += other.num_words;
+        self.num_bytes += other.num_bytes;
+        self.num_chars += other.num_chars;
+    }
+
+    fn print(&self, file_name: &str, args: &Args) {
+        args.lines.then(|| print!("{:>8}", self.num_lines));
+        args.words.then(|| print!("{:>8}", self.num_words));
+        args.bytes.then(|| print!("{:>8}", self.num_bytes));
+        args.chars.then(|| print!("{:>8}", self.num_chars));
+        println!(" {}", if file_name == "-" { "" } else { file_name });
+    }
+}
+
 fn main() {
     let args = get_args();
+    let mut total_info = FileInfo::create();
     for file_name in &args.files {
         match file_open(file_name) {
             Err(e) => eprintln!("Error: {}: {}", file_name, e),
             Ok(file) => {
                 if let Ok(info) = count(file) {
-                    args.lines.then(|| print!("{:>8}", info.num_lines));
-                    args.words.then(|| print!("{:>8}", info.num_words));
-                    args.bytes.then(|| print!("{:>8}", info.num_bytes));
-                    args.chars.then(|| print!("{:>8}", info.num_chars));
-                    println!(" {}", if file_name == "-" { "" } else { file_name });
+                    info.print(file_name, &args);
+                    total_info.add(info);
                 }
             }
         }
+    }
+    if args.files.len() > 1 {
+        total_info.print("total", &args);
     }
 }
 
@@ -70,10 +97,7 @@ fn file_open(filename: &str) -> Result<Box<dyn std::io::BufRead>> {
 }
 
 fn count(mut file: impl BufRead) -> Result<FileInfo> {
-    let mut num_bytes = 0;
-    let mut num_lines = 0;
-    let mut num_words = 0;
-    let mut num_chars = 0;
+    let mut info = FileInfo::create();
     let mut line = String::new();
 
     loop {
@@ -81,17 +105,12 @@ fn count(mut file: impl BufRead) -> Result<FileInfo> {
         if line_bytes == 0 {
             break;
         }
-        num_bytes += line_bytes as u64;
-        num_lines += 1;
-        num_words += line.split_whitespace().count() as u64;
-        num_chars += line.chars().count() as u64;
+        info.num_bytes += line_bytes as u64;
+        info.num_lines += 1;
+        info.num_words += line.split_whitespace().count() as u64;
+        info.num_chars += line.chars().count() as u64;
         line.clear();
     }
 
-    Ok(FileInfo {
-        num_bytes,
-        num_lines,
-        num_words,
-        num_chars,
-    })
+    Ok(info)
 }
