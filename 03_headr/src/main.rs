@@ -47,7 +47,7 @@ fn run(args: Args) -> Result<()> {
             let mut buffer = Vec::new();
             file.take(bytes_from_read).read_to_end(&mut buffer)?;
             let text = String::from_utf8_lossy(&buffer);
-            print!("{}", text.trim_end());
+            print!("{}", text);
         } else {
             let mut line = String::new();
             for _ in 0..args.lines {
