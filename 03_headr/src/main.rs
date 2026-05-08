@@ -1,3 +1,6 @@
+mod calculator;
+mod services;
+
 use clap::Parser;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Result};
@@ -37,7 +40,7 @@ fn main() {
 
 fn run(args: Args) -> Result<()> {
     let file_count = args.files.len();
-
+    crate::calculator::add(1, 2);
     for (idx, filename) in args.files.iter().enumerate() {
         if file_count > 1 {
             println!("{}==> {} <==", if idx > 0 { "\n" } else { "" }, filename);
