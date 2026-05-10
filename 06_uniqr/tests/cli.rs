@@ -2,7 +2,7 @@ use anyhow::Result;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
-use rand::{distr::Alphanumeric, Rng, RngExt};
+use rand::{distr::Alphanumeric, RngExt};
 use std::fs;
 use tempfile::NamedTempFile;
 

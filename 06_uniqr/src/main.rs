@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::Parser;
 use std::{
     fs::File,
@@ -28,26 +28,36 @@ fn main() {
 }
 
 fn run(args: Args) -> Result<()> {
-    let mut file = open(&args.in_file)
-        .map_err(|e| anyhow!("{}: {e}", args.in_file))?;
+    let mut file = open(&args.in_file).map_err(|e| anyhow!("{}: {e}", args.in_file))?;
     let mut line = String::new();
     let mut prev_line = String::new();
     let mut count: u64 = 0;
     loop {
         let bytes = file.read_line(&mut line)?;
         if bytes == 0 {
-            break Ok(());
+            break;
         }
-        if prev_line.is_empty() {
+        if line.trim_end() != prev_line.trim_end() {
+            if count > 0 {
+                write_line(&prev_line, count, args.count);
+            }
             prev_line = line.clone();
-            continue;
+            count = 0;
         }
-        if prev_line == line {
-
-        }
-
-        print!("{line}");
+        count += 1;
         line.clear();
+    }
+    if count > 0 {
+        write_line(&prev_line, count, args.count);
+    }
+    Ok(())
+}
+
+fn write_line(line: &str, count: u64, show_count: bool) {
+    if show_count {
+        print!("{count:>4} {line}");
+    } else {
+        print!("{line}");
     }
 }
 
