@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow};
 use clap::Parser;
+use std::io::Write;
 use std::{
     fs::File,
     io::{BufRead, BufReader},
@@ -32,6 +33,21 @@ fn run(args: Args) -> Result<()> {
     let mut line = String::new();
     let mut prev_line = String::new();
     let mut count: u64 = 0;
+
+    let mut output_file: Box<dyn Write> = match &args.out_file {
+        Some(name) => Box::new(File::create(name)?),
+        _ => Box::new(std::io::stdout()),
+    };
+    let mut write_line = |num: u64, text: &str| -> Result<()> {
+        if num > 0 {
+            if args.count {
+                write!(output_file, "{num:>4} {text}")?
+            } else {
+                write!(output_file, "{text}")?
+            }
+        }
+        Ok(())
+    };
     loop {
         let bytes = file.read_line(&mut line)?;
         if bytes == 0 {
@@ -39,7 +55,7 @@ fn run(args: Args) -> Result<()> {
         }
         if line.trim_end() != prev_line.trim_end() {
             if count > 0 {
-                write_line(&prev_line, count, args.count);
+                let _ = write_line(count, &prev_line);
             }
             prev_line = line.clone();
             count = 0;
@@ -48,17 +64,9 @@ fn run(args: Args) -> Result<()> {
         line.clear();
     }
     if count > 0 {
-        write_line(&prev_line, count, args.count);
+        let _ = write_line(count, &prev_line);
     }
     Ok(())
-}
-
-fn write_line(line: &str, count: u64, show_count: bool) {
-    if show_count {
-        print!("{count:>4} {line}");
-    } else {
-        print!("{line}");
-    }
 }
 
 fn open(filename: &str) -> Result<Box<dyn BufRead>> {
