@@ -2,7 +2,7 @@ use anyhow::Result;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
-use rand::{Rng, distributions::Alphanumeric};
+use rand::{distr::Alphanumeric, RngExt};
 use std::{borrow::Cow, fs, path::Path};
 
 const PRG: &str = "findr";
@@ -10,7 +10,7 @@ const PRG: &str = "findr";
 // --------------------------------------------------
 fn gen_bad_file() -> String {
     loop {
-        let filename: String = rand::thread_rng()
+        let filename: String = rand::rng()
             .sample_iter(&Alphanumeric)
             .take(7)
             .map(char::from)
