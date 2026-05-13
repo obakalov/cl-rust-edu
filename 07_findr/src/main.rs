@@ -1,8 +1,8 @@
-use clap::builder::{PossibleValue, TypedValueParser};
-use clap::{ArgAction, Command, ValueEnum};
-use regex::Regex;
 use anyhow::Result;
-use walkdir::{WalkDir, DirEntry};
+use clap::builder::PossibleValue;
+use clap::{ArgAction, ValueEnum};
+use regex::Regex;
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug)]
 struct Args {
@@ -33,7 +33,6 @@ impl ValueEnum for EntryType {
 }
 
 fn main() {
-
     if let Err(e) = run(get_args()) {
         eprintln!("{e}");
         std::process::exit(1);
@@ -46,7 +45,7 @@ fn run(args: Args) -> Result<()> {
             match entry {
                 Err(e) => eprintln!("{e}"),
                 Ok(entry) => {
-                    if args.entry_types.is_empty() || check_enty_type(&args, &entry) {
+                    if check_enty_type(&args, &entry) && check_name(&args, &entry) {
                         println!("{}", entry.path().display())
                     }
                 }
@@ -56,7 +55,22 @@ fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn check_enty_type(args: &Args, entry: &DirEntry) -> bool {todo!()}
+fn check_enty_type(args: &Args, entry: &DirEntry) -> bool {
+    args.entry_types.is_empty()
+        || args.entry_types.iter().any(|t| match t {
+            EntryType::Dir => entry.file_type().is_dir(),
+            EntryType::File => entry.file_type().is_file(),
+            EntryType::Link => entry.file_type().is_symlink(),
+        })
+}
+
+fn check_name(args: &Args, entry: &DirEntry) -> bool {
+    args.names.is_empty()
+        || args
+            .names
+            .iter()
+            .any(|r| r.is_match(&entry.file_name().to_string_lossy()))
+}
 
 fn get_args() -> Args {
     let matches = clap::Command::new("findr")
@@ -88,8 +102,7 @@ fn get_args() -> Args {
                 .help("Entry types to search")
                 .value_parser(clap::value_parser!(EntryType))
                 .action(ArgAction::Append)
-                .num_args(0..)
-            ,
+                .num_args(0..),
         )
         .get_matches();
 
@@ -98,11 +111,11 @@ fn get_args() -> Args {
             Some(vals) => vals.cloned().collect(),
             None => vec![".".to_string()],
         },
-        names : match matches.get_many::<Regex>("names") {
+        names: match matches.get_many::<Regex>("names") {
             Some(vals) => vals.cloned().collect(),
             None => vec![],
         },
-        entry_types: match  matches.get_many::<EntryType>("types") {
+        entry_types: match matches.get_many::<EntryType>("types") {
             Some(vals) => vals.cloned().collect(),
             None => vec![],
         },
