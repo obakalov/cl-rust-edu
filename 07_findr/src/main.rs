@@ -2,7 +2,7 @@ use clap::builder::{PossibleValue, TypedValueParser};
 use clap::{ArgAction, Command, ValueEnum};
 use regex::Regex;
 use anyhow::Result;
-use walkdir::WalkDir;
+use walkdir::{WalkDir, DirEntry};
 
 #[derive(Debug)]
 struct Args {
@@ -41,16 +41,22 @@ fn main() {
 }
 
 fn run(args: Args) -> Result<()> {
-    for path in args.paths {
+    for path in args.paths.iter() {
         for entry in WalkDir::new(path) {
             match entry {
                 Err(e) => eprintln!("{e}"),
-                Ok(entry) => println!("{}", entry.path().display())
+                Ok(entry) => {
+                    if args.entry_types.is_empty() || check_enty_type(&args, &entry) {
+                        println!("{}", entry.path().display())
+                    }
+                }
             }
         }
     }
     Ok(())
 }
+
+fn check_enty_type(args: &Args, entry: &DirEntry) -> bool {todo!()}
 
 fn get_args() -> Args {
     let matches = clap::Command::new("findr")
