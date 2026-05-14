@@ -1,6 +1,7 @@
 use anyhow::{Result, bail};
 use clap::Parser;
 use std::io::Read;
+use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::str::Split;
 
@@ -80,18 +81,17 @@ fn parse_pos(raw_string: String) -> Result<PositionList> {
     raw_string
         .split(",")
         .map(|part| {
-            let numbers: Vec<usize> = part
+            let numbers: Vec<NonZeroUsize> = part
                 .split("-")
-                .map(|s| s.trim().parse::<usize>())
-                .collect::<Result<Vec<usize>, _>>()
+                .map(|s| s.trim().parse::<NonZeroUsize>())
+                .collect::<Result<Vec<NonZeroUsize>, _>>()
                 .map_err(|_| anyhow::anyhow!("illegal list value: \"{}\"", raw_string))?;
             match numbers.as_slice() {
-                [] | [0] | [0, _] => bail!("illegal list value: \"{}\"", raw_string),
-                [n] => Ok(*n-1..*n),
-                [start, end] if start < end => Ok((*start-1)..*end),
-                [start, end] if start >= end => bail!(
+                [n] => Ok(n.get() - 1..n.get()),
+                [start, end] if start < end => Ok((start.get() - 1)..end.get()),
+                [start, end] => bail!(
                     "First number in range ({}) must be less than second ({})",
-                    start ,
+                    start,
                     end
                 ),
                 _ => bail!("illegal list value: \"{}\"", raw_string),
