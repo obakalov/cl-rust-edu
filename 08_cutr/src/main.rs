@@ -1,6 +1,8 @@
 use anyhow::{Result, bail};
 use clap::Parser;
 use std::io::Read;
+use std::ops::Range;
+use std::str::Split;
 
 #[derive(Debug, Parser)]
 #[command(name = "cutr")]
@@ -29,7 +31,7 @@ struct ArgsExtract {
     chars: Option<String>,
 }
 
-type PositionList = Vec<usize>;
+type PositionList = Vec<Range<usize>>;
 
 pub enum Extract {
     Fields(PositionList),
@@ -71,8 +73,31 @@ fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn parse_pos(range: String) -> Result<PositionList> {
-    unimplemented!()
+fn parse_pos(raw_string: String) -> Result<PositionList> {
+    if raw_string.contains("+") {
+        bail!("illegal list value: \"{}\"", raw_string);
+    }
+    raw_string
+        .split(",")
+        .map(|part| {
+            let numbers: Vec<usize> = part
+                .split("-")
+                .map(|s| s.trim().parse::<usize>())
+                .collect::<Result<Vec<usize>, _>>()
+                .map_err(|_| anyhow::anyhow!("illegal list value: \"{}\"", raw_string))?;
+            match numbers.as_slice() {
+                [] | [0] | [0, _] => bail!("illegal list value: \"{}\"", raw_string),
+                [n] => Ok(*n-1..*n),
+                [start, end] if start < end => Ok((*start-1)..*end),
+                [start, end] if start >= end => bail!(
+                    "First number in range ({}) must be less than second ({})",
+                    start ,
+                    end
+                ),
+                _ => bail!("illegal list value: \"{}\"", raw_string),
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -89,7 +114,7 @@ mod unit_tests {
 
         let res = parse_pos("0-1".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0""#);
+        assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0-1""#);
 
         let res = parse_pos("+1".to_string());
         assert!(res.is_err());
@@ -107,7 +132,6 @@ mod unit_tests {
             res.unwrap_err().to_string(),
             r#"illegal list value: "1-+2""#
         );
-
     }
 
     #[test]
@@ -151,10 +175,51 @@ mod unit_tests {
 
         let res = parse_pos("1-1".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"First number in range (1) must be less than second (1)"#);
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            r#"First number in range (1) must be less than second (1)"#
+        );
 
         let res = parse_pos("2-1".to_string());
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err().to_string(), r#"First number in range (2) must be less than second (1)"#);
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            r#"First number in range (2) must be less than second (1)"#
+        );
+    }
+
+    #[test]
+    fn test_parse_pos_ok() {
+        let res = parse_pos("1".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![0..1]);
+
+        let res = parse_pos("01".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![0..1]);
+
+        let res = parse_pos("1,3".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![0..1, 2..3]);
+
+        let res = parse_pos("001,003".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![0..1, 2..3]);
+
+        let res = parse_pos("1-3".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![0..3]);
+
+        let res = parse_pos("0001-3".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![0..3]);
+
+        let res = parse_pos("1,7,3-5".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![0..1, 6..7, 2..5]);
+
+        let res = parse_pos("15, 19-20".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), vec![14..15, 18..20]);
     }
 }
