@@ -95,7 +95,7 @@ fn extract_fields(line: &StringRecord, field_pos: &[Range<usize>]) -> Vec<String
         .iter()
         .flat_map(|range| range.clone())
         .filter_map(|i| line.get(i))
-        .map(|s| s.to_string())
+        .map(String::from)
         .collect()
 }
 
