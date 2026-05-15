@@ -1,9 +1,8 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use clap::Parser;
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::ops::Range;
-use std::str::Split;
 
 #[derive(Debug, Parser)]
 #[command(name = "cutr")]
@@ -54,6 +53,8 @@ fn run(args: Args) -> Result<()> {
     }
     let _delimiter: u8 = *delim_bytes.first().unwrap();
 
+    let extract = get_extract(&args.extract);
+
     args.files.iter().for_each(|file_name| {
         let mut file = std::fs::File::open(file_name).unwrap_or_else(|e| {
             eprintln!("Failed to open file {file_name}: {e}");
@@ -74,7 +75,19 @@ fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn parse_pos(raw_string: String) -> Result<PositionList> {
+fn get_extract(extract: &ArgsExtract) -> Result<Extract> {
+    if let Some(fields) = extract.fields.as_deref().map(parse_pos).transpose()? {
+        Ok(Extract::Fields(fields))
+    } else if let Some(bytes) = extract.bytes.as_deref().map(parse_pos).transpose()? {
+        Ok(Extract::Bytes(bytes))
+    } else if let Some(chars) = extract.chars.as_deref().map(parse_pos).transpose()? {
+        Ok(Extract::Chars(chars))
+    } else {
+        unreachable!()
+    }
+}
+
+fn parse_pos(raw_string: &str) -> Result<PositionList> {
     if raw_string.contains("+") {
         bail!("illegal list value: \"{}\"", raw_string);
     }
@@ -106,27 +119,27 @@ mod unit_tests {
 
     #[test]
     fn test_parse_pos_error_values() {
-        assert!(parse_pos("".to_string()).is_err());
+        assert!(parse_pos("").is_err());
 
-        let res = parse_pos("0".to_string());
+        let res = parse_pos("0");
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0""#);
 
-        let res = parse_pos("0-1".to_string());
+        let res = parse_pos("0-1");
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "0-1""#);
 
-        let res = parse_pos("+1".to_string());
+        let res = parse_pos("+1");
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "+1""#);
 
-        let res = parse_pos("+1-2".to_string());
+        let res = parse_pos("+1-2");
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
             r#"illegal list value: "+1-2""#
         );
-        let res = parse_pos("1-+2".to_string());
+        let res = parse_pos("1-+2");
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
@@ -136,51 +149,51 @@ mod unit_tests {
 
     #[test]
     fn test_parse_pos_error_non_number() {
-        let res = parse_pos("a".to_string());
+        let res = parse_pos("a");
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a""#);
 
-        let res = parse_pos("1,a".to_string());
+        let res = parse_pos("1,a");
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "1,a""#);
 
-        let res = parse_pos("1-a".to_string());
+        let res = parse_pos("1-a");
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "1-a""#);
 
-        let res = parse_pos("a-1".to_string());
+        let res = parse_pos("a-1");
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), r#"illegal list value: "a-1""#);
     }
 
     #[test]
     fn test_parse_pos_wonky_ranges() {
-        let res = parse_pos("-".to_string());
+        let res = parse_pos("-");
         assert!(res.is_err());
 
-        let res = parse_pos(",".to_string());
+        let res = parse_pos(",");
         assert!(res.is_err());
 
-        let res = parse_pos("1,".to_string());
+        let res = parse_pos("1,");
         assert!(res.is_err());
 
-        let res = parse_pos("1-".to_string());
+        let res = parse_pos("1-");
         assert!(res.is_err());
 
-        let res = parse_pos("1-1-1,".to_string());
+        let res = parse_pos("1-1-1,");
         assert!(res.is_err());
 
-        let res = parse_pos("1-1-a".to_string());
+        let res = parse_pos("1-1-a");
         assert!(res.is_err());
 
-        let res = parse_pos("1-1".to_string());
+        let res = parse_pos("1-1");
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
             r#"First number in range (1) must be less than second (1)"#
         );
 
-        let res = parse_pos("2-1".to_string());
+        let res = parse_pos("2-1");
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),
@@ -190,35 +203,35 @@ mod unit_tests {
 
     #[test]
     fn test_parse_pos_ok() {
-        let res = parse_pos("1".to_string());
+        let res = parse_pos("1");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![0..1]);
 
-        let res = parse_pos("01".to_string());
+        let res = parse_pos("01");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![0..1]);
 
-        let res = parse_pos("1,3".to_string());
+        let res = parse_pos("1,3");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![0..1, 2..3]);
 
-        let res = parse_pos("001,003".to_string());
+        let res = parse_pos("001,003");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![0..1, 2..3]);
 
-        let res = parse_pos("1-3".to_string());
+        let res = parse_pos("1-3");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![0..3]);
 
-        let res = parse_pos("0001-3".to_string());
+        let res = parse_pos("0001-3");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![0..3]);
 
-        let res = parse_pos("1,7,3-5".to_string());
+        let res = parse_pos("1,7,3-5");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![0..1, 6..7, 2..5]);
 
-        let res = parse_pos("15, 19-20".to_string());
+        let res = parse_pos("15, 19-20");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![14..15, 18..20]);
     }

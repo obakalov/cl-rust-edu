@@ -2,7 +2,7 @@ use anyhow::Result;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use pretty_assertions::assert_eq;
-use rand::{distr::Alphanumeric, Rng, RngExt};
+use rand::{Rng, RngExt, distr::Alphanumeric};
 use std::fs;
 
 const PRG: &str = "cutr";
