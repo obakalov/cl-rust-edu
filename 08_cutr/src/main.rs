@@ -1,39 +1,22 @@
 use anyhow::{Result, bail};
-use clap::Parser;
-use clap::builder::Str;
-use csv::{ReaderBuilder, StringRecord};
-use std::fs::File;
+use clap::{Arg};
+use csv::{StringRecord, WriterBuilder};
 use std::io;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 use std::num::NonZeroUsize;
 use std::ops::Range;
 
-#[derive(Debug, Parser)]
-#[command(name = "cutr")]
-#[clap(author = "Obakalov", version = "0.1.0", about = "A simple file cutter")]
+#[derive(Debug)]
 struct Args {
-    #[arg(default_value = "-", value_name = "FILES", help = "Input files")]
     files: Vec<String>,
-    #[arg(
-        short = 'd',
-        long = "delim",
-        help = "File delimiter",
-        default_value = "\t"
-    )]
     delimer: String,
-    #[command(flatten)]
     extract: ArgsExtract,
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug)]
 struct ArgsExtract {
-    #[arg(short = 'f', long = "fields", help = "Extract fields", value_name = "FIELDS", num_args(1..
-    ))]
     fields: Option<String>,
-    #[arg(short = 'b', long = "bytes", help = "Extract bytes", value_name = "BYTES", num_args(1..))]
     bytes: Option<String>,
-    #[arg(short = 'c', long = "chars", help = "Extract characters", value_name = "CHARS", num_args(1..
-    ))]
     chars: Option<String>,
 }
 
@@ -46,9 +29,78 @@ pub enum Extract {
 }
 
 fn main() {
-    if let Err(e) = run(Args::parse()) {
+    if let Err(e) = run(get_args()) {
         eprintln!("{e}");
         std::process::exit(1);
+    }
+}
+
+fn get_args() -> Args {
+    let matches = clap::Command::new("cutr")
+        .version("0.1.0")
+        .author("Obakalov")
+        .about("A simple file cutter")
+        .arg(
+            Arg::new("files")
+                .value_name("FILES")
+                .num_args(1..)
+                .default_value("-")
+                .last(true)
+                .help("Input files"),
+        )
+        .arg(
+            Arg::new("delim")
+                .short('d')
+                .long("delim")
+                .value_name("DELIM")
+                .default_value("\t")
+                .help("Field delimiter"),
+        )
+        .arg(
+            Arg::new("fields")
+                .short('f')
+                .long("fields")
+                .value_name("FIELDS")
+                .num_args(1..)
+                .help("Extract fields"),
+        )
+        .arg(
+            Arg::new("bytes")
+                .short('b')
+                .long("bytes")
+                .value_name("BYTES")
+                .num_args(1..)
+                .help("Extract bytes"),
+        )
+        .arg(
+            Arg::new("chars")
+                .short('c')
+                .long("chars")
+                .value_name("CHARS")
+                .num_args(1..)
+                .help("Extract characters"),
+        )
+        .get_matches();
+
+    let files: Vec<String> = matches
+        .get_many::<String>("files")
+        .unwrap_or_default()
+        .cloned()
+        .collect();
+
+    let delim = matches.get_one::<String>("delim").unwrap().clone();
+    let fields = matches.get_one::<String>("fields").cloned();
+    let bytes = matches.get_one::<String>("bytes").cloned();
+    let chars = matches.get_one::<String>("chars").cloned();
+
+    Args {
+        files,
+        delimer: delim,
+        extract: ArgsExtract {
+            fields,
+            bytes,
+            chars,
+        },
     }
 }
 
@@ -57,18 +109,51 @@ fn run(args: Args) -> Result<()> {
     if delim_bytes.len() != 1 {
         bail!(r#"--delim "{}" must be a single byte "#, args.delimer);
     }
-    let _delimiter: u8 = *delim_bytes.first().unwrap();
+    let delimiter: u8 = *delim_bytes.first().unwrap();
 
-    let extract = get_extract(&args.extract);
+    let extract = get_extract(&args.extract)?;
 
     for file_name in &args.files {
+        println!("Processing file {}", file_name);
         match open_file(file_name) {
             Err(e) => eprintln!("Failed to open file {file_name}: {e}"),
-            Ok(buffer) => todo!(),
+            Ok(buffer) => match &extract {
+                Extract::Fields(field_pos) => read_fields(buffer, delimiter, field_pos)?,
+                Extract::Bytes(byte_pos) => read_bytes(buffer, byte_pos)?,
+                Extract::Chars(char_pos) => read_chars(buffer, char_pos)?,
+            },
         }
     }
-
     Ok(())
+}
+
+fn read_chars(buffer: Box<dyn BufRead>, char_pos: &[Range<usize>]) -> Result<()> {
+    buffer.lines().try_for_each(|line| -> Result<()> {
+        println!("{}", extract_chars(&line?, char_pos));
+        Ok(())
+    })
+}
+
+fn read_fields(buffer: Box<dyn BufRead>, delimiter: u8, field_pos: &[Range<usize>]) -> Result<()> {
+    let mut reader = csv::ReaderBuilder::new()
+        .delimiter(delimiter)
+        .has_headers(false)
+        .from_reader(buffer);
+    let mut writer = WriterBuilder::new()
+        .delimiter(delimiter)
+        .from_writer(io::stdout());
+
+    reader
+        .records()
+        .try_for_each(|record| writer.write_record(extract_fields(&record?, field_pos)))?;
+    Ok(())
+}
+
+fn read_bytes(buffer: Box<dyn BufRead>, byte_pos: &[Range<usize>]) -> Result<()> {
+    buffer.lines().try_for_each(|line| -> Result<()> {
+        println!("{}", extract_bytes(&line?, byte_pos));
+        Ok(())
+    })
 }
 
 fn open_file(file_name: &str) -> Result<Box<dyn BufRead>> {
